@@ -35,6 +35,11 @@ def restore(s):
 
 # ---- 替换规则：web 前端 bundle（含 i18n 字典与"关于"弹窗）----
 WEB_REPL = [
+    # ⚠️ 字典键修复：这三个键在压缩产物里是不带引号的属性名，
+    #    替换值含空格会破坏语法（黑屏根因），必须连引号一起替换。
+    ('微信好友:"', f'"GitHub 仓库":"'),
+    ('新身数字人微信公众号二维码:"', f'"作者 GitHub 主页二维码":"'),
+    ('新身数字人:"', f'"作者 GitHub":"'),
     # 关于弹窗 标题
     ("关于 ffclip", f"关于 {BRAND}"), ("About ffclip", f"About {BRAND}"),
     # 官网链接 → 仓库
@@ -174,5 +179,20 @@ if left:
     for f, c in files[:10]: print(f"    {f}: {c}")
 else:
     print("[rebrand] ✅ 无 ffclip 残留")
+# ---- 语法校验（黑屏兜底：任何 JS 改坏都在这里拦下）----
+import subprocess, shutil
+node = shutil.which("node")
+if node:
+    bad = []
+    for f in g("web", "assets", "*.js") + g("server", "*.mjs") + g("bin", "*.mjs"):
+        r = subprocess.run([node, "--check", f], capture_output=True, text=True)
+        if r.returncode != 0:
+            bad.append((f, (r.stderr or "").strip().splitlines()[-1] if r.stderr else "unknown"))
+    if bad:
+        for f, err in bad: print(f"[rebrand] ❌ 语法校验失败: {os.path.relpath(f, target)}\n    {err}")
+        sys.exit(1)
+    print(f"[rebrand] ✅ 全部 JS 语法校验通过")
+else:
+    print("[rebrand] ⚠️ 未找到 node，跳过语法校验")
 print("[rebrand] 完成")
 PYEOF
